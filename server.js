@@ -1,10 +1,10 @@
 /**
  * ===============================================================================
- * APEX MASTER v30.1 (QUANTUM INTELLIGENT STRIKER) - FINAL STABILITY BUILD
+ * APEX MASTER v30.2 (QUANTUM INTELLIGENT STRIKER) - FINAL REPAIR BUILD
  * ===============================================================================
  * FIX: MaxListenersExceeded memory leak + Handshake Guard
  * DNA: 250 ETH LEVERAGE + NUCLEAR BRIBE (99.9%) + AI SELF-HEALING
- * PROTECTION: 48-CORE STAGGERED CLUSTER | MULTI-RPC FALLBACK | L1 GAS AWARE
+ * PROTECTION: 48-CORE COORDINATION | MULTI-RPC FALLBACK | L1 GAS AWARE
  * ===============================================================================
  */
 
@@ -17,13 +17,13 @@ const {
 } = require('ethers');
 require('dotenv').config();
 
-// --- CRITICAL: FIX MEMORY LEAK & NOISE ---
-process.setMaxListeners(100); // Scale event system for 48 cores
+// --- CRITICAL: FIX EVENT LEAK & SUPPRESS NOISE ---
+process.setMaxListeners(100); // Scale event system for 48 parallel cores
 
 process.on('uncaughtException', (err) => {
     const msg = err.message || "";
     if (msg.includes('429') || msg.includes('503') || msg.includes('network')) return;
-    console.error("\n\x1b[31m[SYSTEM ERROR]\x1b[0m", msg);
+    console.error("\n\x1b[31m[SYSTEM ROOT ERROR]\x1b[0m", msg);
 });
 
 const TXT = { reset: "\x1b[0m", green: "\x1b[32m", yellow: "\x1b[33m", gold: "\x1b[38;5;220m", cyan: "\x1b[36m" };
@@ -46,32 +46,35 @@ const GLOBAL_CONFIG = {
 if (cluster.isPrimary) {
     console.clear();
     console.log(`${TXT.gold}╔════════════════════════════════════════════════════════╗`);
-    console.log(`║   ⚡ APEX MASTER v30.1 | STABILIZED REPAIR BUILD      ║`);
+    console.log(`║   ⚡ APEX MASTER v30.2 | STABILIZED REPAIR BUILD      ║`);
     console.log(`║   DNA: 48-CORE COORDINATION + MEMORY LEAK PROTECTION ║`);
     console.log(`╚════════════════════════════════════════════════════════╝${TXT.reset}\n`);
 
     const nonces = {};
     const cpuCount = Math.min(os.cpus().length, 48);
     
-    // v30.1: Sequential Hydration (ensures RPC stability)
+    // Centralized Signal Dispatcher (Fixes Memory Leak)
+    const broadcastSignal = (msg) => {
+        Object.values(cluster.workers).forEach(worker => {
+            if (worker && worker.isConnected()) worker.send(msg);
+        });
+    };
+
     const spawnWorkers = async () => {
         for (let i = 0; i < cpuCount; i++) {
             const worker = cluster.fork();
             
-            // Centralized message handler to prevent listener leaks
             worker.on('message', (msg) => {
                 if (msg.type === 'SYNC_RESERVE') {
                     if (!nonces[msg.chainId] || msg.nonce > nonces[msg.chainId]) nonces[msg.chainId] = msg.nonce;
                     worker.send({ type: 'SYNC_GRANT', nonce: nonces[msg.chainId], chainId: msg.chainId, reqId: msg.reqId });
                     nonces[msg.chainId]++;
                 }
-                if (msg.type === 'QUANTUM_SIGNAL') {
-                    Object.values(cluster.workers).forEach(w => { if(w.id !== worker.id) w.send(msg); });
-                }
+                if (msg.type === 'QUANTUM_SIGNAL') broadcastSignal(msg);
             });
             
-            // Wait 1.2s between each core boot to bypass 429/503 Handshake Guard
-            await new Promise(r => setTimeout(r, 1200));
+            // v30.2: Sequential Ignition (1.5s delay) to bypass RPC 429 Guard
+            await new Promise(r => setTimeout(r, 1500));
         }
     };
 
@@ -79,7 +82,7 @@ if (cluster.isPrimary) {
     cluster.on('exit', () => setTimeout(() => cluster.fork(), 3000));
 } else {
     // --- WORKER CORE ---
-    const networkIndex = (cluster.worker.id - 1) % 2; // Split between Base and Mainnet
+    const networkIndex = (cluster.worker.id - 1) % 2; 
     initWorker(networkIndex === 0 ? 8453 : 1);
 }
 
@@ -95,31 +98,32 @@ async function initWorker(chainId) {
     const l1Oracle = chainId === 8453 ? new Contract("0x420000000000000000000000000000000000000F", ["function getL1Fee(bytes) view returns (uint256)"], provider) : null;
     
     const ROLE = (cluster.worker.id % 4 === 0) ? "LISTENER" : "STRIKER";
-    const TAG = `[${chainId === 8453 ? 'BASE' : 'ETH'}-${ROLE}]`;
+    const TAG = `${TXT.cyan}[${chainId === 8453 ? 'BASE' : 'ETH'}-${ROLE}]${TXT.reset}`;
 
     async function connect() {
         try {
             const wssUrl = chainId === 8453 ? process.env.BASE_WSS : process.env.ETH_WSS;
             const ws = new WebSocketProvider(wssUrl, network);
-            ws.on('error', () => {}); // Catch silent drops
+            ws.on('error', () => {}); 
 
             if (ROLE === "LISTENER") {
                 ws.on('block', () => process.send({ type: 'QUANTUM_SIGNAL', chainId }));
-                console.log(`${TXT.green}${TAG} Peering Engaged.${TXT.reset}`);
+                console.log(`${TAG} Listening...`);
             } else {
                 process.on('message', async (msg) => {
                     if (msg.type === 'QUANTUM_SIGNAL' && msg.chainId === chainId) {
-                        await executeQuantumStrike(provider, wallet, poolIface, l1Oracle, TAG, chainId);
+                        await new Promise(r => setTimeout(r, Math.random() * 30)); // Cluster jitter
+                        await executeStrike(provider, wallet, poolIface, l1Oracle, TAG, chainId);
                     }
                 });
-                console.log(`${TXT.yellow}${TAG} Standby.${TXT.reset}`);
+                console.log(`${TAG} Standby.`);
             }
         } catch (e) { setTimeout(connect, 10000); }
     }
     connect();
 }
 
-async function executeQuantumStrike(provider, wallet, poolIface, l1Oracle, TAG, chainId) {
+async function executeStrike(provider, wallet, poolIface, l1Oracle, TAG, chainId) {
     try {
         const reqId = Math.random();
         const state = await new Promise(res => {
@@ -139,14 +143,14 @@ async function executeQuantumStrike(provider, wallet, poolIface, l1Oracle, TAG, 
         if (sim === "0x" || BigInt(sim) === 0n) return;
 
         const baseFee = feeData.maxFeePerGas || feeData.gasPrice;
-        const totalCost = (GLOBAL_CONFIG.GAS_LIMIT * (baseFee + parseEther("1000", "gwei"))) + l1Fee;
+        const priority = parseEther("1000", "gwei");
+        const totalCost = (GLOBAL_CONFIG.GAS_LIMIT * (baseFee + priority)) + l1Fee + ((GLOBAL_CONFIG.FLASH_LOAN_AMOUNT * 5n) / 10000n);
 
         if (BigInt(sim) > (totalCost + parseEther(GLOBAL_CONFIG.TUNABLES.MIN_NET_PROFIT))) {
-            const tx = { to: "0xA238Dd80C259a72e81d7e4664a9801593F98d1c5", data: tradeData, type: 2, maxFeePerGas: baseFee + parseEther("1000", "gwei"), maxPriorityFeePerGas: parseEther("1000", "gwei"), gasLimit: GLOBAL_CONFIG.GAS_LIMIT, nonce: state.nonce, chainId };
+            const tx = { to: "0xA238Dd80C259a72e81d7e4664a9801593F98d1c5", data: tradeData, type: 2, maxFeePerGas: baseFee + priority, maxPriorityFeePerGas: priority, gasLimit: GLOBAL_CONFIG.GAS_LIMIT, nonce: state.nonce, chainId };
             const signedHex = await wallet.signTransaction(tx);
-            // Saturation Broadcast
             axios.post(GLOBAL_CONFIG.RPC_POOL[0], { jsonrpc: "2.0", id: 1, method: "eth_sendRawTransaction", params: [signedHex] }).catch(() => {});
-            console.log(`\n${TXT.green}🚀 STRIKE MINED [${TAG}]: +${formatEther(BigInt(sim) - totalCost)} ETH${TXT.reset}`);
+            console.log(`\n${TXT.green}${TXT.bold}🚀 STRIKE: +${formatEther(BigInt(sim) - totalCost)} ETH${TXT.reset}`);
         }
     } catch (e) {}
 }
